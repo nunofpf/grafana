@@ -3,7 +3,8 @@
 # to maintain formatting of multiline commands in vscode, add the following to settings.json:
 # "docker.languageserver.formatter.ignoreMultilineInstructions": true
 
-ARG BASE_IMAGE=alpine:3.21
+# ARG BASE_IMAGE=alpine:3.21
+ARG BASE_IMAGE=ubuntu:22.04
 ARG JS_IMAGE=node:22-alpine
 ARG JS_PLATFORM=linux/amd64
 ARG GO_IMAGE=golang:1.24.5-alpine
@@ -11,6 +12,64 @@ ARG GO_IMAGE=golang:1.24.5-alpine
 # Default to building locally
 ARG GO_SRC=go-builder
 ARG JS_SRC=js-builder
+
+################### PLUGINS COMPILATION - Start ###################
+FROM proxy.criticalmanufacturing.io/golang:alpine3.21 AS im_go
+USER root
+
+RUN apk add --no-cache git
+
+COPY ./plugins/criticalmanufacturing-grpc-datasource /go/src/grpc
+WORKDIR /go/src/grpc
+
+### Compiling backend
+
+RUN go "build" "-o" "dist/cmf_backend_grpc_plugin_linux_amd64" "-ldflags" "-w -s -extldflags \"-static\" -X 'github.com/grafana/grafana-plugin-sdk-go/build.buildInfoJSON={\"time\":1677258377824,\"version\":\"1.0.0\",\"repo\":\"CMF\",\"branch\":\"Deploy\",\"hash\":\"83d7fe05b465008972bea160643473286f89af9e6\"}' -X 'main.version=1.0.0' -X 'main.branch=Deploy' -X 'main.commit=abcd'" "./pkg"
+
+RUN git clone https://github.com/criticalmanufacturing/grafana-odata-datasource.git /go/src/odata -b feature-odata-query-string --depth 1
+WORKDIR /go/src/odata
+
+### Compiling backend
+
+RUN go "build" "-o" "dist/cmf_backend_odata_plugin_linux_amd64" "-ldflags" "-w -s -extldflags \"-static\" -X 'github.com/grafana/grafana-plugin-sdk-go/build.buildInfoJSON={\"time\":1677258377824,\"version\":\"1.0.0\",\"repo\":\"CMF\",\"branch\":\"Deploy\",\"hash\":\"83d7fe05b465008972bea160643473286f89af9e6\"}' -X 'main.version=1.0.0' -X 'main.branch=Deploy' -X 'main.commit=abcd'" "./pkg"
+
+### Compiling frontend grpc
+
+FROM proxy.criticalmanufacturing.io/ubuntu:22.04 AS im_node
+USER root
+
+WORKDIR /usr/src/grpc
+COPY ./plugins/criticalmanufacturing-grpc-datasource .
+
+COPY ./public.gpg.key /opt/public.gpg.key
+
+RUN apt-get update \
+    && apt-get install -y curl gnupg \
+    && apt-key add /opt/public.gpg.key \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt update
+RUN apt install curl -y
+#GRPC only compiles with version "^14 || ^16 || ^17 || ^18 || ^19"
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
+RUN apt-get update
+RUN apt-get install yarn -y
+RUN yarn install --ignore-engines
+RUN yarn build
+
+RUN apt install git -y
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
+
+RUN git clone https://github.com/criticalmanufacturing/grafana-odata-datasource.git /usr/src/odata -b feature-odata-query-string --depth 1
+
+WORKDIR /usr/src/odata
+
+RUN yarn install
+RUN yarn build
+
+################### PLUGINS COMPILATION - End ###################
 
 # Javascript build stage
 FROM --platform=${JS_PLATFORM} ${JS_IMAGE} AS js-builder
@@ -70,7 +129,7 @@ COPY .citools/swagger .citools/swagger
 
 # Include vendored dependencies
 COPY pkg/util/xorm pkg/util/xorm
-COPY pkg/apis/folder pkg/apis/folder
+# COPY pkg/apis/folder pkg/apis/folder
 COPY pkg/apis/secret pkg/apis/secret
 COPY pkg/apiserver pkg/apiserver
 COPY pkg/apimachinery pkg/apimachinery
@@ -134,10 +193,14 @@ FROM ${JS_SRC} AS js-src
 # Final stage
 FROM ${BASE_IMAGE}
 
-LABEL maintainer="Grafana Labs <hello@grafana.com>"
+LABEL name="grafana" \
+      maintainer="contact@criticalmanufacturing.com" \
+      vendor="CRITICAL MANUFACTURING, S.A." \
+      summary="Grafana container image" \
+      description="Grafana container image"
 LABEL org.opencontainers.image.source="https://github.com/grafana/grafana"
 
-ARG GF_UID="472"
+ARG GF_UID="1001"
 ARG GF_GID="0"
 
 ENV PATH="/usr/share/grafana/bin:$PATH" \
@@ -145,7 +208,7 @@ ENV PATH="/usr/share/grafana/bin:$PATH" \
   GF_PATHS_DATA="/var/lib/grafana" \
   GF_PATHS_HOME="/usr/share/grafana" \
   GF_PATHS_LOGS="/var/log/grafana" \
-  GF_PATHS_PLUGINS="/var/lib/grafana/plugins" \
+  GF_PATHS_PLUGINS="/data/grafana/plugins" \
   GF_PATHS_PROVISIONING="/etc/grafana/provisioning"
 
 WORKDIR $GF_PATHS_HOME
@@ -217,9 +280,72 @@ COPY --from=js-src /tmp/grafana/LICENSE ./
 
 EXPOSE 3000
 
+###################### HANDLING CMF SPECIFIC DATA - START ######################
+
+### Env variables for grafana plugins
+ENV GF_INSTALL_PLUGINS= \
+    GF_PATHS_CONFIG=/etc/grafana/grafana.ini \
+    GF_PATHS_DATA=/var/lib/grafana \
+    GF_PATHS_HOME=/usr/share/grafana \
+    GF_PATHS_LOGS=/var/log/grafana \
+    GF_PATHS_PLUGINS=/data/grafana/plugins \
+    GF_PATHS_PROVISIONING=/etc/grafana/provisioning \
+    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="criticalmanufacturing-grpc-datasource,criticalmanufacturing-odata-datasource"
+
+### Copy CMF plugin to the plugin directory
+RUN mkdir -p /data/grafana/plugins/criticalmanufacturing-grpc-datasource
+COPY --from=im_node /usr/src/grpc/dist/ /data/grafana/plugins/criticalmanufacturing-grpc-datasource
+COPY --from=im_go /go/src/grpc/dist/cmf_backend_grpc_plugin_linux_amd64 /data/grafana/plugins/criticalmanufacturing-grpc-datasource/
+RUN chmod u+x /data/grafana/plugins/criticalmanufacturing-grpc-datasource/cmf_backend_grpc_plugin_linux_amd64
+
+RUN mkdir -p /data/grafana/plugins/criticalmanufacturing-odata-datasource
+COPY --from=im_node /usr/src/odata/dist/ /data/grafana/plugins/criticalmanufacturing-odata-datasource
+COPY --from=im_go /go/src/odata/dist/cmf_backend_odata_plugin_linux_amd64 /data/grafana/plugins/criticalmanufacturing-odata-datasource/
+RUN chmod u+x /data/grafana/plugins/criticalmanufacturing-odata-datasource/cmf_backend_odata_plugin_linux_amd64
+
+RUN grafana-cli --pluginsDir "/data/grafana/plugins" plugins install retrodaredevil-wildgraphql-datasource 1.2.1
+RUN grafana-cli --pluginsDir "/data/grafana/plugins" plugins install volkovlabs-echarts-panel 6.4.1
+
+
+###################### HANDLING CMF SPECIFIC DATA - END ######################
+
 ARG RUN_SH=./packaging/docker/run.sh
 
 COPY ${RUN_SH} /run.sh
 
+USER root
+
+# https://learn.microsoft.com/en-us/dotnet/core/runtime-config/globalization
+# avoid our CMFEntrypoint to throw this error: Couldn't find a valid ICU package installed on the system
+# caused by missing package libicu63 in this image
+# this need to be set as environment variable on all base images
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+
+# License
+COPY --from=dev.criticalmanufacturing.io/criticalmanufacturing/base/ubi9:11.2-dev /licenses /licenses
+# CmfEntrypoint
+COPY --from=dev.criticalmanufacturing.io/criticalmanufacturing/base/ubi9:11.2-dev /usr/share/CmfEntrypoint /usr/share/CmfEntrypoint
+
+RUN apt-get update \
+    && apt-get install -y gnupg wget \
+    && wget http://ftp.de.debian.org/debian/pool/main/i/icu/libicu67_67.1-7_amd64.deb \
+    && dpkg -i libicu67_67.1-7_amd64.deb \
+    && rm libicu67_67.1-7_amd64.deb \
+    && wget http://ftp.de.debian.org/debian/pool/main/o/openssl/libssl1.1_1.1.1w-0+deb11u1_amd64.deb \
+    && dpkg -i libssl1.1_1.1.1w-0+deb11u1_amd64.deb \
+    && rm libssl1.1_1.1.1w-0+deb11u1_amd64.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR $GF_PATHS_HOME
+
+USER root
+
+RUN chown -R $GF_UID:$GF_GID "$GF_PATHS_DATA" "$GF_PATHS_HOME" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" "$GF_PATHS_PROVISIONING" && \
+    chmod -R 775 "$GF_PATHS_DATA" "$GF_PATHS_HOME" "$GF_PATHS_LOGS" "$GF_PATHS_PLUGINS" "$GF_PATHS_PROVISIONING"
+
 USER "$GF_UID"
-ENTRYPOINT [ "/run.sh" ]
+
+ENTRYPOINT /usr/share/CmfEntrypoint/CmfEntrypoint "/bin/sh /run.sh" \
+       --process-secrets \
+       --layer="grafana" \
+       --target-directory="/etc/grafana/provisioning"

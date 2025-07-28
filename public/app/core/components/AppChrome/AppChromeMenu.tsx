@@ -99,7 +99,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       zIndex: theme.zIndex.modal,
       position: 'fixed',
       top: 0,
-      backgroundColor: theme.colors.background.primary,
+      backgroundColor: theme.colors.cm.navBar,
       flex: '1 1 0',
 
       [theme.breakpoints.up('md')]: {

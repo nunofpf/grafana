@@ -223,7 +223,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     paddingLeft: theme.spacing(0.5),
   }),
   hasActiveChild: css({
-    color: theme.colors.text.primary,
+    color: theme.colors.cm.text,
   }),
   children: css({
     display: 'flex',

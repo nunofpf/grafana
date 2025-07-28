@@ -52,6 +52,13 @@ export interface ThemeColorsBase<TColor> {
     brandHorizontal: string;
   };
 
+  cm: {
+    topBar: string;
+    icons: string;
+    navBar: string;
+    text: string;
+  };
+
   action: {
     /** Used for selected menu item / select option */
     selected: string;
@@ -167,6 +174,14 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     brandVertical: 'linear-gradient(0.01deg, #F55F3E 0.01%, #FF8833 99.99%)',
   };
 
+  cm = {
+    topBar: palette.cmDarkTopBar,
+    icons: palette.cmDarkIcons,
+    navBar: palette.cmDarkNavBar,
+    text: palette.cmDarkText,
+    hover: alpha(palette.cmDarkText, 0.05),
+  };
+
   contrastThreshold = 3;
   hoverFactor = 0.03;
   tonalOffset = 0.15;
@@ -248,6 +263,14 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   gradients = {
     brandHorizontal: 'linear-gradient(90deg, #FF8833 0%, #F53E4C 100%)',
     brandVertical: 'linear-gradient(0.01deg, #F53E4C -31.2%, #FF8833 113.07%)',
+  };
+
+  cm = {
+    topBar: palette.cmLightTopBar,
+    icons: palette.cmLightIcons,
+    navBar: palette.cmLightNavBar,
+    text: palette.cmLightText,
+    hover: alpha(palette.cmLightText, 0.05),
   };
 
   contrastThreshold = 3;

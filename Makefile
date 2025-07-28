@@ -403,8 +403,9 @@ build-docker-full-ubuntu: ## Build Docker image based on Ubuntu for development.
 	--build-arg WIRE_TAGS=$(WIRE_TAGS) \
 	--build-arg COMMIT_SHA=$$(git rev-parse HEAD) \
 	--build-arg BUILD_BRANCH=$$(git rev-parse --abbrev-ref HEAD) \
-	--build-arg BASE_IMAGE=ubuntu:22.04 \
-	--build-arg GO_IMAGE=golang:$(GO_VERSION) \
+	--build-arg BASE_IMAGE=proxy.criticalmanufacturing.io/ubuntu:22.04 \
+	--build-arg JS_IMAGE=proxy.criticalmanufacturing.io/node:22-alpine \
+	--build-arg GO_IMAGE=proxy.criticalmanufacturing.io/golang:$(GO_VERSION) \
 	--tag grafana/grafana$(TAG_SUFFIX):dev-ubuntu \
 	$(DOCKER_BUILD_ARGS)
 
