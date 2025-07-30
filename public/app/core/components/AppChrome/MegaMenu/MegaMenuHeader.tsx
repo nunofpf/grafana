@@ -66,6 +66,7 @@ MegaMenuHeader.displayName = 'MegaMenuHeader';
 const getStyles = (theme: GrafanaTheme2) => ({
   dockMenuButton: css({
     display: 'none',
+    color: theme.colors.cm.text,
 
     [theme.breakpoints.up('xl')]: {
       display: 'inline-flex',
@@ -80,6 +81,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     padding: theme.spacing(0, 1, 0, 0.75),
     height: getChromeHeaderLevelHeight(),
     flexShrink: 0,
+    color: theme.colors.cm.text,
   }),
   img: css({
     alignSelf: 'center',

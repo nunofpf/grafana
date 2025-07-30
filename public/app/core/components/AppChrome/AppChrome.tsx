@@ -202,7 +202,7 @@ const getStyles = (theme: GrafanaTheme2, headerHeight: number) => {
       paddingTop: 0,
     }),
     dockedMegaMenu: css({
-      background: theme.colors.background.primary,
+      background: theme.colors.cm.navBar,
       borderRight: `1px solid ${theme.colors.border.weak}`,
       display: 'none',
       height: '100%',

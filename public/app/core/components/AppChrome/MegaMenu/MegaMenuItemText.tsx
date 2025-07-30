@@ -80,6 +80,7 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive']) => ({
   wrapperBookmark: css({
     '.pin-icon': {
       visibility: 'hidden',
+      color: theme.colors.cm.text,
     },
     '&:hover, &:focus-within': {
       a: {

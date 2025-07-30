@@ -204,6 +204,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   collapseButton: css({
     margin: 0,
+    color: theme.colors.cm.text,
   }),
   collapsibleSectionWrapper: css({
     alignItems: 'center',
