@@ -305,6 +305,7 @@ RUN chmod u+x /data/grafana/plugins/criticalmanufacturing-odata-datasource/cmf_b
 
 RUN grafana-cli --pluginsDir "/data/grafana/plugins" plugins install retrodaredevil-wildgraphql-datasource 1.2.1
 RUN grafana-cli --pluginsDir "/data/grafana/plugins" plugins install volkovlabs-echarts-panel 6.4.1
+RUN grafana-cli --pluginsDir "/data/grafana/plugins" plugins install gapit-htmlgraphics-panel 2.2.1
 
 
 ###################### HANDLING CMF SPECIFIC DATA - END ######################
