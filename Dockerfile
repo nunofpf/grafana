@@ -19,13 +19,6 @@ USER root
 
 RUN apk add --no-cache git
 
-COPY ./plugins/criticalmanufacturing-grpc-datasource /go/src/grpc
-WORKDIR /go/src/grpc
-
-### Compiling backend
-
-RUN go "build" "-o" "dist/cmf_backend_grpc_plugin_linux_amd64" "-ldflags" "-w -s -extldflags \"-static\" -X 'github.com/grafana/grafana-plugin-sdk-go/build.buildInfoJSON={\"time\":1677258377824,\"version\":\"1.0.0\",\"repo\":\"CMF\",\"branch\":\"Deploy\",\"hash\":\"83d7fe05b465008972bea160643473286f89af9e6\"}' -X 'main.version=1.0.0' -X 'main.branch=Deploy' -X 'main.commit=abcd'" "./pkg"
-
 RUN git clone https://github.com/criticalmanufacturing/grafana-odata-datasource.git /go/src/odata -b feature-odata-query-string --depth 1
 WORKDIR /go/src/odata
 
@@ -33,13 +26,10 @@ WORKDIR /go/src/odata
 
 RUN go "build" "-o" "dist/cmf_backend_odata_plugin_linux_amd64" "-ldflags" "-w -s -extldflags \"-static\" -X 'github.com/grafana/grafana-plugin-sdk-go/build.buildInfoJSON={\"time\":1677258377824,\"version\":\"1.0.0\",\"repo\":\"CMF\",\"branch\":\"Deploy\",\"hash\":\"83d7fe05b465008972bea160643473286f89af9e6\"}' -X 'main.version=1.0.0' -X 'main.branch=Deploy' -X 'main.commit=abcd'" "./pkg"
 
-### Compiling frontend grpc
+### Compiling frontend odata
 
 FROM proxy.criticalmanufacturing.io/ubuntu:22.04 AS im_node
 USER root
-
-WORKDIR /usr/src/grpc
-COPY ./plugins/criticalmanufacturing-grpc-datasource .
 
 COPY ./public.gpg.key /opt/public.gpg.key
 
@@ -50,14 +40,10 @@ RUN apt-get update \
 
 RUN apt update
 RUN apt install curl -y
-#GRPC only compiles with version "^14 || ^16 || ^17 || ^18 || ^19"
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs
 RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
 RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
 RUN apt-get update
 RUN apt-get install yarn -y
-RUN yarn install --ignore-engines
-RUN yarn build
 
 RUN apt install git -y
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
@@ -290,14 +276,9 @@ ENV GF_INSTALL_PLUGINS= \
     GF_PATHS_LOGS=/var/log/grafana \
     GF_PATHS_PLUGINS=/data/grafana/plugins \
     GF_PATHS_PROVISIONING=/etc/grafana/provisioning \
-    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="criticalmanufacturing-grpc-datasource,criticalmanufacturing-odata-datasource"
+    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="criticalmanufacturing-odata-datasource"
 
 ### Copy CMF plugin to the plugin directory
-RUN mkdir -p /data/grafana/plugins/criticalmanufacturing-grpc-datasource
-COPY --from=im_node /usr/src/grpc/dist/ /data/grafana/plugins/criticalmanufacturing-grpc-datasource
-COPY --from=im_go /go/src/grpc/dist/cmf_backend_grpc_plugin_linux_amd64 /data/grafana/plugins/criticalmanufacturing-grpc-datasource/
-RUN chmod u+x /data/grafana/plugins/criticalmanufacturing-grpc-datasource/cmf_backend_grpc_plugin_linux_amd64
-
 RUN mkdir -p /data/grafana/plugins/criticalmanufacturing-odata-datasource
 COPY --from=im_node /usr/src/odata/dist/ /data/grafana/plugins/criticalmanufacturing-odata-datasource
 COPY --from=im_go /go/src/odata/dist/cmf_backend_odata_plugin_linux_amd64 /data/grafana/plugins/criticalmanufacturing-odata-datasource/
