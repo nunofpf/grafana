@@ -328,7 +328,9 @@ RUN chown -R $GF_UID:$GF_GID "$GF_PATHS_DATA" "$GF_PATHS_HOME" "$GF_PATHS_LOGS" 
 
 USER "$GF_UID"
 
-ENTRYPOINT /usr/share/CmfEntrypoint/CmfEntrypoint "/bin/sh /run.sh" \
-       --process-secrets \
-       --layer="grafana" \
-       --target-directory="/etc/grafana/provisioning"
+ENTRYPOINT [ "/usr/share/CmfEntrypoint/CmfEntrypoint", \
+      "--process-secrets", \
+      "--layer=grafana", \
+      "--target-directory=/etc/grafana/provisioning" ,\
+      "--" ,\
+      "/run.sh" ]
