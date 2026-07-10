@@ -47,6 +47,7 @@ export function MegaMenuHeader({ handleDockedMenu, onClose }: Props) {
         variant="secondary"
       />
       <IconButton
+        className={styles.closeMenuButton}
         aria-label={t('navigation.megamenu.close', 'Close menu')}
         tooltip={t('navigation.megamenu.close', 'Close menu')}
         name="times"
@@ -63,10 +64,14 @@ MegaMenuHeader.displayName = 'MegaMenuHeader';
 const getStyles = (theme: GrafanaTheme2, visualRefreshEnabled: boolean) => ({
   dockMenuButton: css({
     display: 'none',
+    color: theme.colors.cm.text,
 
     [theme.breakpoints.up('xl')]: {
       display: 'inline-flex',
     },
+  }),
+  closeMenuButton: css({
+    color: theme.colors.cm.text,
   }),
   header: css({
     alignItems: 'center',
@@ -77,6 +82,7 @@ const getStyles = (theme: GrafanaTheme2, visualRefreshEnabled: boolean) => ({
     padding: theme.spacing(0, 1, 0, 1),
     height: getChromeHeaderLevelHeight(),
     flexShrink: 0,
+    color: theme.colors.cm.text,
   }),
   flexGrow: css({ flexGrow: 1 }),
 });

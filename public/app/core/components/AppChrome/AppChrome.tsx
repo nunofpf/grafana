@@ -216,7 +216,7 @@ const getStyles = (theme: GrafanaTheme2, headerLevels: number, headerHeight: num
       paddingTop: 0,
     }),
     dockedMegaMenu: css({
-      background: visualRefreshEnabled ? theme.colors.background.canvas : theme.colors.background.primary,
+      background: visualRefreshEnabled ? theme.colors.background.canvas : theme.colors.cm.navBar,
       borderRight: visualRefreshEnabled ? undefined : `1px solid ${theme.colors.border.weak}`,
       display: 'none',
       height: '100%',

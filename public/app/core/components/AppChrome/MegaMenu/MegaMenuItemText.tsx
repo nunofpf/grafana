@@ -71,6 +71,7 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive']) => ({
     height: '100%',
     '.pin-icon': {
       visibility: 'hidden',
+      color: theme.colors.cm.text,
     },
     '&:hover, &:focus-within': {
       a: {
@@ -102,13 +103,13 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive']) => ({
   }),
   container: css({
     alignItems: 'center',
-    color: isActive ? theme.colors.text.primary : theme.colors.text.secondary,
+    color: theme.colors.cm.text,
     height: '100%',
     position: 'relative',
     width: '100%',
 
     '&:hover span, &:focus-visible span': {
-      color: theme.colors.text.primary,
+      color: theme.colors.cm.text,
       textDecoration: 'underline',
     },
 
