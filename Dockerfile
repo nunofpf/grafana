@@ -387,7 +387,7 @@ RUN mkdir -p /data/grafana/plugins/criticalmanufacturing-odata-datasource
 COPY --from=im_node /usr/src/odata/dist/ /data/grafana/plugins/criticalmanufacturing-odata-datasource
 COPY --from=im_go /go/src/odata/dist/cmf_backend_odata_plugin_linux_amd64 /data/grafana/plugins/criticalmanufacturing-odata-datasource/
 RUN chmod u+x /data/grafana/plugins/criticalmanufacturing-odata-datasource/cmf_backend_odata_plugin_linux_amd64
-RUN grafana cli --pluginsDir "/data/grafana/plugins" plugins install retrodaredevil-wildgraphql-datasource 1.2.1
+RUN grafana cli --pluginsDir "/data/grafana/plugins" plugins install retrodaredevil-wildgraphql-datasource 1.6.1
 RUN grafana cli --pluginsDir "/data/grafana/plugins" plugins install volkovlabs-echarts-panel 6.4.1
 RUN grafana cli --pluginsDir "/data/grafana/plugins" plugins install gapit-htmlgraphics-panel 2.2.1
 RUN grafana cli --pluginsDir "/data/grafana/plugins" plugins install grafana-clickhouse-datasource 4.10.2
