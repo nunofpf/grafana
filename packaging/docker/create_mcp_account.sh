@@ -10,17 +10,53 @@ log() {
 }
 
 : "${CMF_GRAFANA_MCP_ACCOUNT_NAME:=}"
+: "${CMF_GRAFANA_MCP_ACCOUNT_PASSWORD:=}"
+: "${GF_SECURITY_ADMIN_USER:=admin}"
+: "${GF_SECURITY_ADMIN_PASSWORD:=admin}"
 
 if [ -z "$CMF_GRAFANA_MCP_ACCOUNT_NAME" ]; then
   log "CMF_GRAFANA_MCP_ACCOUNT_NAME is not set, skipping."
   exit 0
 fi
 
+if [ -z "$CMF_GRAFANA_MCP_ACCOUNT_PASSWORD" ]; then
+  log "CMF_GRAFANA_MCP_ACCOUNT_PASSWORD is not set, skipping."
+  exit 0
+fi
+
+# Prints the HTTP status code of a GET against the given path with the given credentials.
+http_status() {
+  curl -s -o /dev/null -w "%{http_code}" -u "$1:$2" "http://localhost:3000$3"
+}
+
 log "Waiting for Grafana to become healthy..."
 until curl -sf "http://localhost:3000/api/health" >/dev/null 2>&1; do
   sleep 1
 done
 log "Grafana is healthy."
+
+# 1. Check if the MCP account already exists and works (e.g. on subsequent container starts)
+mcp_auth_code=$(http_status "$CMF_GRAFANA_MCP_ACCOUNT_NAME" "$CMF_GRAFANA_MCP_ACCOUNT_PASSWORD" "/api/org")
+if [ "$mcp_auth_code" = "200" ]; then
+  log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' already exists and is authenticated. Setup already completed."
+  exit 0
+fi
+
+# 2. Check if default admin credentials work to perform initial setup.
+# A 401/403 means the default admin was already removed by a previous run, so there is nothing left to do.
+admin_auth_code=$(http_status "$GF_SECURITY_ADMIN_USER" "$GF_SECURITY_ADMIN_PASSWORD" "/api/org")
+
+case "$admin_auth_code" in
+  200) ;;
+  401 | 403)
+    log "Default admin account '$GF_SECURITY_ADMIN_USER' cannot authenticate (HTTP $admin_auth_code); assuming setup already completed by a previous run."
+    exit 0
+    ;;
+  *)
+    log "Unexpected response (HTTP $admin_auth_code) while checking default admin account. Skipping."
+    exit 0
+    ;;
+esac
 
 lookup_response=$(curl -sf -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
   "http://localhost:3000/api/users/lookup?loginOrEmail=$CMF_GRAFANA_MCP_ACCOUNT_NAME" 2>&1) || lookup_response=""
@@ -39,7 +75,7 @@ fi
 
 # Drop the default admin account, now that the MCP account exists to take its place.
 admin_lookup_response=$(curl -sf -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
-  "http://localhost:3000/api/users/lookup?loginOrEmail=admin" 2>&1) || admin_lookup_response=""
+  "http://localhost:3000/api/users/lookup?loginOrEmail=$GF_SECURITY_ADMIN_USER" 2>&1) || admin_lookup_response=""
 admin_user_id=$(echo "$admin_lookup_response" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
 
 if [ -n "$admin_user_id" ]; then
