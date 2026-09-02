@@ -87,7 +87,7 @@ admin_lookup_response=$(curl -sf -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_
 admin_user_id=$(json_get_id "$admin_lookup_response")
 
 if [ -n "$admin_user_id" ]; then
-  log "Default admin account found (id=$admin_user_id), deleting it..."
+  log "Default admin account found, deleting it..."
   delete_status=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
     "http://localhost:3000/api/admin/users/$admin_user_id" 2>&1) || delete_status="error"
   case "$delete_status" in
