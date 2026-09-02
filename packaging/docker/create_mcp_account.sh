@@ -73,9 +73,9 @@ if [ -z "$mcp_user_id" ]; then
     -d "{\"name\":\"$CMF_GRAFANA_MCP_ACCOUNT_NAME\",\"login\":\"$CMF_GRAFANA_MCP_ACCOUNT_NAME\",\"password\":\"$CMF_GRAFANA_MCP_ACCOUNT_PASSWORD\",\"email\":\"${CMF_GRAFANA_MCP_ACCOUNT_EMAIL:-$CMF_GRAFANA_MCP_ACCOUNT_NAME@localhost}\"}" \
     "http://localhost:3000/api/admin/users" 2>&1) || create_status="error"
   case "$create_status" in
-    201) log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' created successfully." ;;
+    200 | 201) log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' created." ;;
     409) log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' already exists." ;;
-    *) log "MCP account creation returned HTTP $create_status; proceeding anyway." ;;
+    *) log "MCP account creation failed (HTTP $create_status); skipping deletion step." ;;
   esac
 else
   log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' already exists (id=$mcp_user_id), skipping creation."
@@ -88,9 +88,12 @@ admin_user_id=$(json_get_id "$admin_lookup_response")
 
 if [ -n "$admin_user_id" ]; then
   log "Default admin account found (id=$admin_user_id), deleting it..."
-  delete_response=$(curl -sf -w "\n%{http_code}" -X DELETE -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
-    "http://localhost:3000/api/admin/users/$admin_user_id" 2>&1) || true
-  log "Delete admin account response: $delete_response"
+  delete_status=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
+    "http://localhost:3000/api/admin/users/$admin_user_id" 2>&1) || delete_status="error"
+  case "$delete_status" in
+    200 | 204) log "Default admin account deleted." ;;
+    *) log "Admin account deletion returned HTTP $delete_status; this may need manual cleanup." ;;
+  esac
 else
   log "Default admin account not found, nothing to delete."
 fi
