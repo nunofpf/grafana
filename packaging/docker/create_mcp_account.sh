@@ -1,8 +1,8 @@
 #!/bin/sh
 # Ensures a dedicated Grafana admin account for the Grafana MCP server exists on startup.
-# Only creates the MCP account if it doesn't already exist, then removes
-# the default admin account if it's still present, so the script is idempotent.
-# Configured via CMF_GRAFANA_MCP_ACCOUNT_NAME/_PASSWORD/_EMAIL env vars; no-op if login is unset.
+# Creates MCP account if missing, deletes default admin account. Script is idempotent.
+# Required: CMF_GRAFANA_MCP_ACCOUNT_NAME, CMF_GRAFANA_MCP_ACCOUNT_PASSWORD.
+# Optional: CMF_GRAFANA_MCP_ACCOUNT_EMAIL, GF_SECURITY_ADMIN_{USER,PASSWORD} (defaults: admin/admin).
 set -eu
 
 log() {
@@ -24,9 +24,13 @@ if [ -z "$CMF_GRAFANA_MCP_ACCOUNT_PASSWORD" ]; then
   exit 0
 fi
 
-# Prints the HTTP status code of a GET against the given path with the given credentials.
 http_status() {
   curl -s -o /dev/null -w "%{http_code}" -u "$1:$2" "http://localhost:3000$3"
+}
+
+# Extracts the id field from Grafana JSON responses.
+json_get_id() {
+  echo "$1" | sed -n 's/.*"id":\([0-9]*\).*/\1/p'
 }
 
 log "Waiting for Grafana to become healthy..."
@@ -60,15 +64,19 @@ esac
 
 lookup_response=$(curl -sf -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
   "http://localhost:3000/api/users/lookup?loginOrEmail=$CMF_GRAFANA_MCP_ACCOUNT_NAME" 2>&1) || lookup_response=""
-mcp_user_id=$(echo "$lookup_response" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+mcp_user_id=$(json_get_id "$lookup_response")
 
 if [ -z "$mcp_user_id" ]; then
   log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' not found, creating it..."
-  create_response=$(curl -sf -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
+  create_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" \
     -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
     -d "{\"name\":\"$CMF_GRAFANA_MCP_ACCOUNT_NAME\",\"login\":\"$CMF_GRAFANA_MCP_ACCOUNT_NAME\",\"password\":\"$CMF_GRAFANA_MCP_ACCOUNT_PASSWORD\",\"email\":\"${CMF_GRAFANA_MCP_ACCOUNT_EMAIL:-$CMF_GRAFANA_MCP_ACCOUNT_NAME@localhost}\"}" \
-    "http://localhost:3000/api/admin/users" 2>&1) || true
-  log "Create account response: $create_response"
+    "http://localhost:3000/api/admin/users" 2>&1) || create_status="error"
+  case "$create_status" in
+    201) log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' created successfully." ;;
+    409) log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' already exists." ;;
+    *) log "MCP account creation returned HTTP $create_status; proceeding anyway." ;;
+  esac
 else
   log "MCP account '$CMF_GRAFANA_MCP_ACCOUNT_NAME' already exists (id=$mcp_user_id), skipping creation."
 fi
@@ -76,7 +84,7 @@ fi
 # Drop the default admin account, now that the MCP account exists to take its place.
 admin_lookup_response=$(curl -sf -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
   "http://localhost:3000/api/users/lookup?loginOrEmail=$GF_SECURITY_ADMIN_USER" 2>&1) || admin_lookup_response=""
-admin_user_id=$(echo "$admin_lookup_response" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+admin_user_id=$(json_get_id "$admin_lookup_response")
 
 if [ -n "$admin_user_id" ]; then
   log "Default admin account found (id=$admin_user_id), deleting it..."
