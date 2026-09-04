@@ -62,9 +62,11 @@ case "$admin_uid" in
     ;;
 esac
 
-# Use the admin's own uid as the external OAuth identity so the link is deterministic.
+# The OAuth provider is expected to assert the admin login as the external identity.
+auth_id="$GF_SECURITY_ADMIN_USER"
+
 existing=$(sqlite3 "$db_path" \
-  "SELECT COUNT(*) FROM user_auth WHERE user_id = $admin_id AND auth_module = '$auth_module' AND auth_id = '$admin_uid';")
+  "SELECT COUNT(*) FROM user_auth WHERE user_id = $admin_id AND auth_module = '$auth_module' AND auth_id = '$auth_id';")
 
 if [ "$existing" -gt 0 ]; then
   log "Admin account already linked to '$auth_module', nothing to do."
@@ -73,5 +75,5 @@ fi
 
 log "Linking admin account (id=$admin_id, uid=$admin_uid) to '$auth_module'..."
 sqlite3 "$db_path" \
-  "INSERT INTO user_auth (user_id, auth_module, auth_id, created, user_uid) VALUES ($admin_id, '$auth_module', '$admin_uid', datetime('now'), '$admin_uid');"
+  "INSERT INTO user_auth (user_id, auth_module, auth_id, created, user_uid) VALUES ($admin_id, '$auth_module', '$auth_id', datetime('now'), '$admin_uid');"
 log "Done."
