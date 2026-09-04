@@ -407,10 +407,10 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 COPY --from=dev.criticalmanufacturing.io/criticalmanufacturing/base/ubi9:12.0-dev /licenses /licenses
 # CmfEntrypoint
 COPY --from=dev.criticalmanufacturing.io/criticalmanufacturing/base/ubi9:12.0-dev /usr/share/CmfEntrypoint /usr/share/CmfEntrypoint
-COPY ./packaging/docker/create_mcp_account.sh /create_mcp_account.sh
-RUN chmod +x /create_mcp_account.sh
+COPY ./packaging/docker/link_admin_oauth.sh /link_admin_oauth.sh
+RUN chmod +x /link_admin_oauth.sh
 RUN apt-get update \
-    && apt-get install -y gnupg wget \
+    && apt-get install -y gnupg wget sqlite3 \
     && wget http://ftp.de.debian.org/debian/pool/main/i/icu/libicu67_67.1-7_amd64.deb \
     && dpkg -i libicu67_67.1-7_amd64.deb \
     && rm libicu67_67.1-7_amd64.deb \
@@ -428,7 +428,7 @@ ENTRYPOINT [ "/usr/share/CmfEntrypoint/CmfEntrypoint", \
       "--process-secrets", \
       "--layer=grafana", \
       "--target-directory=/etc/grafana/provisioning" ,\
-      "--exec-script-async", "/create_mcp_account.sh", \
+      "--exec-script-async", "/link_admin_oauth.sh", \
       "--" ,\
       "/run.sh" ]
 
